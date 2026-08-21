@@ -53,6 +53,17 @@ jobs:
         run: |
           pip download lark --no-deps --only-binary=:all: --dest demo/files
 
+      - name: Write the package list embed.html installs from
+        # paths are relative to the page; `just wheels` does the same thing locally
+        run: |
+          python - <<'EOF'
+          import json, pathlib
+          files = pathlib.Path("demo/files")
+          wheels = sorted(f"files/{w.name}" for w in files.glob("*.whl"))
+          (files / "pyscript.json").write_text(json.dumps({"packages": wheels}, indent=2) + "\n")
+          print("pyscript.json ->", wheels)
+          EOF
+
       - name: Build the JupyterLite site
         working-directory: demo
         run: |
@@ -63,6 +74,17 @@ jobs:
           done
           echo "bundling:$wheels"
           jupyter lite build --contents notebooks $wheels --output-dir ../_site
+
+      - name: Stage the PyScript examples page at /embed/
+        # its own directory: JupyterLite already writes notebook contents to
+        # _site/files/, and mini-coi's service worker scope is the directory it is
+        # served from, so /embed/ keeps it clear of the lab app
+        run: |
+          mkdir -p _site/embed/files
+          cp demo/embed.html _site/embed/index.html
+          cp demo/mini-coi.js _site/embed/
+          cp demo/files/*.whl demo/files/pyscript.json _site/embed/files/
+          test -s _site/embed/files/pyscript.json
 
       - uses: actions/upload-pages-artifact@v3
         with:

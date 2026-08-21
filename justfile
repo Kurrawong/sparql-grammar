@@ -44,6 +44,20 @@ check-demos:
     fi
     uv run python demo/test_demos.py
 
+# Stage embed.html and its assets into a built site, under /embed/.
+#
+# Its own subdirectory for two reasons: JupyterLite already writes notebook contents
+# to _site/files/, which would collide with the wheels, and mini-coi's service worker
+# scope is the directory it is served from, so /embed/ isolates it from the lab app.
+[private]
+embed-into dir: wheels
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "{{ dir }}/embed/files"
+    cp demo/embed.html "{{ dir }}/embed/index.html"
+    cp demo/mini-coi.js "{{ dir }}/embed/"
+    cp demo/files/*.whl demo/files/pyscript.json "{{ dir }}/embed/files/"
+
 # Build the JupyterLite site into _site/, wheels and all.
 site: wheels
     #!/usr/bin/env bash
@@ -57,6 +71,8 @@ site: wheels
     echo "bundling:$wheels"
     uv run --with-requirements requirements-build.txt \
         jupyter lite build --contents notebooks $wheels --output-dir ../_site
+    cd ..
+    just embed-into _site
 
 # The wheels Pyodide installs: this package, and lark for the parse extra.
 wheels:
@@ -68,11 +84,12 @@ wheels:
     uv run --with-requirements demo/requirements-build.txt --with pip \
         python -m pip download lark --no-deps --only-binary=:all: --dest demo/files
     # embed.html reads its package list from here, so the wheel version never has
-    # to be spelled out in the HTML
+    # to be spelled out in the HTML. Paths are relative to the page, which resolves
+    # them against its own directory - see the comment on `base` in embed.html.
     python3 - <<'PY'
     import json, pathlib
     files = pathlib.Path("demo/files")
-    wheels = sorted(f"/files/{w.name}" for w in files.glob("*.whl"))
+    wheels = sorted(f"files/{w.name}" for w in files.glob("*.whl"))
     (files / "pyscript.json").write_text(json.dumps({"packages": wheels}, indent=2) + "\n")
     print("pyscript.json ->", wheels)
     PY

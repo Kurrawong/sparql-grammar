@@ -4,8 +4,9 @@
   no notebook and no IDE here: PyScript boots one Pyodide interpreter, installs the
   wheels listed in files/pyscript.json, and every editor below shares it.
 
-  Serve it with `just embed` - the package list uses absolute paths, so demo/ has to
-  be the server root.
+  Serve it with `just embed`. Every path here resolves against the page itself, so
+  the same file works at a server root and under the /<repo>/ prefix of a project
+  GitHub Pages site.
 -->
 <html lang="en">
   <head>
@@ -14,10 +15,10 @@
       Editors run in a worker, and reaching `window`/`document` from a worker needs
       SharedArrayBuffer, which needs cross-origin isolation. mini-coi is a service
       worker that supplies the COOP/COEP headers, so this works on a plain static
-      host - GitHub Pages included. It must be same-origin, hence the local copy,
-      and must load before anything else.
+      host - GitHub Pages included. It must be same-origin, hence the local copy
+      alongside this page, and must load before anything else.
     -->
-    <script src="/mini-coi.js"></script>
+    <script src="./mini-coi.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>sparql-grammar — runnable examples</title>
     <link rel="stylesheet" href="https://pyscript.net/releases/2026.7.3/core.css" />
@@ -75,8 +76,8 @@
       Runs once, before any editor below, and renders nothing itself.
 
       The install happens here rather than in a PyScript `config` because editors run
-      in a worker, where micropip cannot resolve a root-relative URL - it needs the
-      origin spelled out. Reading files/pyscript.json at runtime also keeps the wheel
+      in a worker, where micropip cannot resolve a relative URL - it needs an absolute
+      one, built below. Reading files/pyscript.json at runtime also keeps the wheel
       version out of this file; `just wheels` regenerates it.
     -->
     <script type="py-editor" env="demo" setup>
@@ -89,8 +90,11 @@
       import micropip
       from pyscript import document, fetch, window
 
-      base = window.location.origin
-      manifest = await (await fetch(f"{base}/files/pyscript.json")).json()
+      # The page's own directory, with a trailing slash: absolute, as micropip needs,
+      # but carrying whatever prefix the site is served under. `origin` would drop the
+      # /<repo>/ of a project Pages site.
+      base = window.URL.new(".", window.location.href).href
+      manifest = await (await fetch(f"{base}files/pyscript.json")).json()
       await micropip.install([base + path for path in manifest["packages"]])
 
       import sparql_grammar
@@ -178,7 +182,7 @@
 
     <p style="margin-top: 3rem; font-size: .9rem; color: #666;">
       Want a file browser, multiple notebooks and a persistent kernel instead?
-      That is the <a href="/lab/index.html">JupyterLite build</a>.
+      That is the <a href="../lab/index.html">JupyterLite build</a>.
     </p>
   </body>
 </html>

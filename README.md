@@ -6,8 +6,11 @@ data, change them programmatically, print them for a machine or for a person.
 
 No runtime dependencies. No pydantic.
 
-**[Try it in your browser](https://kurrawong.github.io/sparql-grammar/lab/index.html)** —
-notebooks on Pyodide, nothing to install. (Live once Pages is enabled; see `demo/`.)
+**[Run it in your browser](https://kurrawong.github.io/sparql-grammar/embed/)** — the
+examples below, editable, on a real Python interpreter. Nothing to install. Prefer a
+notebook and a file browser? [Same library, JupyterLite
+build](https://kurrawong.github.io/sparql-grammar/lab/index.html). Both go live once the
+repository has Pages enabled; see `demo/`.
 
 ```python
 from sparql_grammar import iri, optional, select, var
