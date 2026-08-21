@@ -269,12 +269,13 @@ tests so it cannot quietly get worse.
 
 ## The browser demo
 
-`demo/` holds a [JupyterLite](https://jupyterlite.readthedocs.io/) site that runs the
-library in the browser, published to GitHub Pages by `.github/workflows/deploy-demo.yml`.
-It works because the package is pure Python with no runtime dependencies — as is `lark`,
-so the `parse` extra runs there too. The notebooks are written as plain Python in
-`demo/src/`, so CI regenerates them, checks they are not stale, and runs every cell
-before publishing.
+`demo/` holds two browser builds, both running the library itself: a
+[JupyterLite](https://jupyterlite.readthedocs.io/) site (`just serve`) and
+`embed.html`, a plain page of editable, runnable examples on PyScript (`just embed`).
+Both work because the package is pure Python with no runtime dependencies — as is
+`lark`, so the `parse` extra runs there too. The notebooks are written as plain Python
+in `demo/src/`, so CI regenerates them, checks they are not stale, and runs every cell
+before publishing. See [demo/README.md](demo/README.md).
 
 ## Migrating from sparql-grammar-pydantic
 

@@ -1,34 +1,52 @@
 # Browser demo
 
-A [JupyterLite](https://jupyterlite.readthedocs.io/) site: the notebooks in `notebooks/`
-run in the browser on Pyodide, with no server and nothing to install. That works because
-the library is pure Python with no runtime dependencies — and because `lark`, needed for
-the `parse` extra, is pure Python too.
+The library takes two shapes in a browser, both served from this directory and both
+working because the package is pure Python with no runtime dependencies — as is `lark`,
+so the `parse` extra runs there too.
 
-Published by `.github/workflows/deploy-demo.yml` on every push to the default branch.
+| | what it is | run it |
+|---|---|---|
+| `notebooks/` | a [JupyterLite](https://jupyterlite.readthedocs.io/) site: file browser, multiple notebooks, persistent kernel | `just serve` |
+| `embed.html` | a plain page whose code blocks are editable and runnable — no notebook, no IDE | `just embed` |
 
-## Editing the notebooks
+`.github/workflows/deploy-demo.yml` publishes the JupyterLite site on every push to the
+default branch.
 
-The demos are written as plain Python in `src/`, not as notebook JSON, so the code can be
-run and tested like any other code. Cells are delimited by `# %%`, and `# %% [markdown]`
-starts a prose cell. `test_demos.py` runs in CI before the site is built, so a demo that
-raises cannot be published.
+## embed.html
+
+PyScript boots one Pyodide interpreter, a hidden `setup` editor installs the wheels
+listed in `files/pyscript.json`, and every editor on the page shares that interpreter.
+Two constraints worth knowing before editing it:
+
+- The editors run in a **worker**, so `window` and `document` need `SharedArrayBuffer`,
+  which needs cross-origin isolation. `mini-coi.js` is vendored here to supply those
+  headers from any static host, GitHub Pages included. It must be same-origin, so it
+  cannot come from a CDN.
+- micropip in a worker cannot resolve a root-relative wheel URL, so the setup editor
+  builds absolute URLs from `window.location.origin` rather than declaring packages in a
+  PyScript `config`. This is also why `demo/` has to be the server root.
+
+## The notebooks
+
+Written as plain Python in `src/`, not notebook JSON, so the code runs and tests like any
+other code. Cells are delimited by `# %%`, and `# %% [markdown]` starts a prose cell.
+The `piplite.install` cell is a no-op outside Pyodide, so they also run against a normal
+checkout — `just lab` layers JupyterLab over the project venv rather than adding it as a
+dependency.
 
 ```shell
-python demo/build_notebooks.py     # src/*.py -> notebooks/*.ipynb
-python demo/test_demos.py          # run every cell, offline
+just build-notebooks    # src/*.py -> notebooks/*.ipynb
+just test-demos         # run every cell, offline
+just check-demos        # what CI enforces: notebooks in sync with src/, and every cell runs
+just lab                # open them in a local JupyterLab
 ```
 
-## Building the site locally
+`test_demos.py` runs in CI before the site is built, so a demo that raises cannot be
+published.
 
-The package is not on PyPI yet, so the site carries its own wheels: both must be passed
-to `--piplite-wheels` or `piplite.install` will fail in the browser.
+## Building the site
 
-```shell
-pip install -r demo/requirements-build.txt
-python -m build --wheel --outdir demo/files .                     # the wheel Pyodide installs
-pip download lark --no-deps --only-binary=:all: --dest demo/files  # for the parse extra
-cd demo && jupyter lite build --contents notebooks \
-    $(for w in files/*.whl; do echo --piplite-wheels $w; done) --output-dir ../_site
-python -m http.server --directory ../_site
-```
+`just wheels` builds the two wheels Pyodide installs and regenerates
+`files/pyscript.json`, so the wheel version is never spelled out in `embed.html`. `just
+site` bundles them into `_site/` (each wheel needs its own `--piplite-wheels` flag, which
+the recipe handles); `just serve` builds and serves it. `just clean` drops the artefacts.
