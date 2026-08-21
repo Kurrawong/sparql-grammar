@@ -1,8 +1,10 @@
 <!doctype html>
 <!--
   Runnable examples in a plain page. Unlike the JupyterLite site next door, there is
-  no notebook and no IDE here: PyScript boots one Pyodide interpreter, installs the
-  wheels listed in files/pyscript.json, and every editor below shares it.
+  no notebook and no IDE here: PyScript boots one Pyodide interpreter and installs the
+  wheels listed in files/pyscript.json. Editors share the interpreter but not their
+  namespaces, so each example imports what it uses - which is also what you would
+  write in your own code.
 
   Serve it with `just embed`. Every path here resolves against the page itself, so
   the same file works at a server root and under the /<repo>/ prefix of a project
@@ -97,13 +99,11 @@
       manifest = await (await fetch(f"{base}files/pyscript.json")).json()
       await micropip.install([base + path for path in manifest["packages"]])
 
+      # Import once here so the wheels are known to be good before the run buttons
+      # appear. Each editor has its own namespace, so the examples below import for
+      # themselves rather than relying on anything being published from here.
       import sparql_grammar
       from sparql_grammar.parse import parse
-
-      # `from sparql_grammar import *` is not usable here: PyScript wraps editor code
-      # in a function to allow top-level await, and a star import inside a function is
-      # a syntax error. The effect is the same.
-      globals().update({name: getattr(sparql_grammar, name) for name in sparql_grammar.__all__})
 
       document.getElementById("boot").hidden = True
     </script>
@@ -114,6 +114,8 @@
       rather than a tower of constructors.
     </p>
     <script type="py-editor" env="demo">
+      from sparql_grammar import iri, optional, select, var
+
       query = select(
           var("concept"),
           var("label"),
@@ -140,6 +142,8 @@
       and <code>a</code> stays the <code>rdf:type</code> keyword rather than a term.
     </p>
     <script type="py-editor" env="demo">
+      from sparql_grammar import iri, literal, term, var
+
       # values that already say what they are, or carry their type in Python
       for value in [var("s"), iri("http://ex/p"), literal("http://ex/p"), 42, -1.5, True]:
           print(f"{str(value):24} {type(term(value)).__name__}")
@@ -160,6 +164,9 @@
       edit it in place instead of rebuilding the query from scratch.
     </p>
     <script type="py-editor" env="demo">
+      from sparql_grammar import INTEGER, Var, filter_, regex, var
+      from sparql_grammar.parse import parse   # `parse` needs the lark wheel
+
       query = parse("""
           PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
           SELECT ?concept ?label
