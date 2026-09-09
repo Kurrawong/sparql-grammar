@@ -57,7 +57,7 @@ pip install sparql-grammar[rdflib]     # + rdflib term conversion
 Write the objects, or write SPARQL and get the objects:
 
 ```python
-from sparql_grammar import parse            # pip install sparql-grammar[parse]
+from sparql_grammar.parse import parse      # pip install sparql-grammar[parse]
 
 query = parse("SELECT ?s WHERE { ?s a <http://ex/C> } LIMIT 10")
 query.query.query.solution_modifier.limit_offset.limit_clause.limit = INTEGER("100")

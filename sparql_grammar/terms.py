@@ -32,7 +32,7 @@ import re
 from math import isfinite
 from typing import ClassVar, NoReturn, Union
 
-from ._base import Add, Node, alias, production
+from ._base import Add, Node, _post_init, alias, production
 from .terminals import (
     IRIREF_INNER_RE,
     LANG_DIR_INNER_RE,
@@ -177,6 +177,23 @@ def refuse_string(value: str, *, literals_allowed: bool = True) -> NoReturn:
     )
 
 
+def _plain_str(node: Node) -> None:
+    """Store ``value`` as an exact ``str``, then run the usual construction hook.
+
+    rdflib's ``URIRef``, ``Variable`` and ``Literal`` are ``str`` subclasses whose
+    ``__eq__`` answers ``False`` against a plain ``str`` of the same text. Left as
+    they are, ``IRI(URIRef(x)) != IRI(x)`` even though both render identically, and
+    the two neither deduplicate in a set nor compare equal in a test - while the
+    structural hash (of the rendered text) says they should. Consumers that build
+    queries from rdflib graphs pass such terms in constantly, so the text is stored
+    as a plain ``str`` here, at the cost of one type check per node.
+    """
+    value = node.value
+    if type(value) is not str:
+        node.value = str(value)
+    _post_init(node)
+
+
 @production(rule="Var")
 class Var(Node):
     """Var ::= VAR1 | VAR2
@@ -186,6 +203,9 @@ class Var(Node):
 
     value: str
     sigil: str = "?"
+
+    def __post_init__(self) -> None:
+        _plain_str(self)
 
     def _check(self, level: str) -> list[str]:
         errors = super()._check(level)
@@ -222,6 +242,9 @@ class IRI(Node):
     """
 
     value: str
+
+    def __post_init__(self) -> None:
+        _plain_str(self)
 
     def render(self, add: Add) -> None:
         add("<")
@@ -318,6 +341,12 @@ class RDFLiteral(Node):
     value: object
     lang_dir: LANG_DIR | None = None
     datatype: object = None
+
+    def __post_init__(self) -> None:
+        # only plain text is coerced: a String terminal is a node and stays one
+        if isinstance(self.value, str):
+            _plain_str(self)
+        _post_init(self)
 
     def _check(self, level: str) -> list[str]:
         errors = super()._check(level)

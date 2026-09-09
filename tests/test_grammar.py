@@ -519,3 +519,79 @@ class TestScaleAndCoverage:
         implemented = {**REGISTRY, **ALIASES}
         missing = [p.name for p in parse_bnf() if p.name not in implemented]
         assert missing == []
+
+
+
+class TestAdjacentTriplesBlocks:
+    """Two TriplesBlocks in a row must still render to legal SPARQL.
+
+    Consumers assemble a group from several sources (a profile's triples, a filter's
+    triples, a VALUES block), which puts blocks side by side. The grammar has no
+    such production, so the renderer supplies the ``.`` between them.
+    """
+
+    def test_dot_between_adjacent_blocks(self):
+        from sparql_grammar import GroupGraphPatternSub, TriplesBlock, iri, triple, var
+
+        sub = GroupGraphPatternSub(
+            [
+                TriplesBlock([triple(var("s"), iri("http://a"), var("o"))]),
+                TriplesBlock([triple(var("s"), iri("http://b"), var("p"))]),
+            ]
+        )
+        assert sub.to_string() == "?s <http://a> ?o .\n?s <http://b> ?p"
+
+    def test_no_dot_before_a_pattern(self):
+        from sparql_grammar import (
+            GroupGraphPatternSub,
+            TriplesBlock,
+            iri,
+            literal,
+            triple,
+            values,
+            var,
+        )
+
+        sub = GroupGraphPatternSub(
+            [
+                TriplesBlock([triple(var("s"), iri("http://a"), var("o"))]),
+                values("o", [literal("x")]),
+                TriplesBlock([triple(var("s"), iri("http://b"), var("p"))]),
+            ]
+        )
+        assert sub.to_string() == (
+            '?s <http://a> ?o\nVALUES ?o { "x" }\n?s <http://b> ?p'
+        )
+
+    def test_empty_block_separates_nothing(self):
+        from sparql_grammar import GroupGraphPatternSub, TriplesBlock, iri, triple, var
+
+        sub = GroupGraphPatternSub(
+            [
+                TriplesBlock([triple(var("s"), iri("http://a"), var("o"))]),
+                TriplesBlock(),
+                TriplesBlock([triple(var("s"), iri("http://b"), var("p"))]),
+            ]
+        )
+        assert sub.to_string() == "?s <http://a> ?o .\n?s <http://b> ?p"
+
+    def test_adjacent_blocks_parse(self):
+        pytest.importorskip("lark")
+        from sparql_grammar import (
+            GroupGraphPatternSub,
+            TriplesBlock,
+            iri,
+            select,
+            triple,
+            var,
+        )
+        from sparql_grammar.parse import parse
+
+        sub = GroupGraphPatternSub(
+            [
+                TriplesBlock([triple(var("s"), iri("http://a"), var("o"))]),
+                TriplesBlock([triple(var("s"), iri("http://b"), var("p"))]),
+            ]
+        )
+        text = select(var("s"), where=sub).to_string()
+        assert len(parse(text).collect(TriplesBlock)[0].triples) == 2
