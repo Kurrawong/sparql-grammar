@@ -1077,10 +1077,22 @@ class GroupGraphPatternSub(Node):
             self.patterns = []
 
     def render(self, add: Add) -> None:
-        for i, pattern in enumerate(self.patterns):
-            if i:
-                add("\n")
+        # The grammar has no production for two TriplesBlocks side by side: a block
+        # is only followed by a GraphPatternNotTriples or the closing brace. A list
+        # holding two blocks in a row (built incrementally, or from several sources)
+        # is still rendered as legal SPARQL by joining them with the ``.`` that
+        # TriplesBlock itself makes optional at the end of a block.
+        previous_was_triples = False
+        first = True
+        for pattern in self.patterns:
+            is_triples = isinstance(pattern, TriplesBlock)
+            if is_triples and not pattern.triples:
+                continue  # an empty block renders nothing, so it separates nothing
+            if not first:
+                add(" .\n" if previous_was_triples and is_triples else "\n")
             pattern.render(add)
+            previous_was_triples = is_triples
+            first = False
 
     # -- incremental assembly ---------------------------------------------
 

@@ -128,3 +128,39 @@ class TestCoreHasNoRdflibDependency:
             if path.name != "rdflib_compat.py" and imports.search(path.read_text())
         ]
         assert offenders == []
+
+
+class TestRdflibTermsAsValues:
+    """rdflib terms handed straight to a constructor behave like the plain text.
+
+    ``URIRef`` and friends subclass ``str`` but refuse equality with a plain ``str``,
+    which would make ``IRI(URIRef(x))`` a different node from ``IRI(x)`` while
+    rendering the same. The constructors store plain text, so they are the same node.
+    """
+
+    def test_iri_from_uriref_equals_iri_from_str(self):
+        assert IRI(URIRef("http://ex/p")) == IRI("http://ex/p")
+        assert hash(IRI(URIRef("http://ex/p"))) == hash(IRI("http://ex/p"))
+        assert len({IRI(URIRef("http://ex/p")), IRI("http://ex/p")}) == 1
+        assert type(IRI(URIRef("http://ex/p")).value) is str
+
+    def test_var_from_variable(self):
+        assert Var(Variable("s")) == Var("s")
+        assert Var(Variable("s")).to_string() == "?s"
+
+    def test_literal_text_from_rdflib_literal(self):
+        # the value is only text here; language and datatype travel separately
+        assert RDFLiteral(Literal("x")) == RDFLiteral("x")
+        assert RDFLiteral(Literal("x")).to_string() == '"x"'
+
+    def test_string_terminals_are_kept_as_nodes(self):
+        from sparql_grammar import STRING_LITERAL1
+
+        node = RDFLiteral(STRING_LITERAL1("x"))
+        assert isinstance(node.value, STRING_LITERAL1)
+
+    def test_debug_validation_still_runs(self):
+        from sparql_grammar import ValidationError, debug_validation
+
+        with debug_validation("terminals"), pytest.raises(ValidationError):
+            IRI(URIRef("http://ex/bad iri"))
